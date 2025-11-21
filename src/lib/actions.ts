@@ -13,8 +13,21 @@ type AnalysisResult = {
 const mockDetectEvents = (clipIdentifier: string): DetectedEvent[] => {
   // For user uploads, generate random events
   const events: DetectedEvent[] = [];
-  const eventTypes = ["Door Slam", "Phone Ring", "Glass Break", "Siren", "Speech"];
-  const numEvents = Math.floor(Math.random() * 3) + 1; // 1 to 3 events
+  const eventTypes = [
+    "Dog bark",
+    "Clapping",
+    "Door slam",
+    "Coughing",
+    "Keyboard typing",
+    "Laughing",
+    "Siren",
+    "Phone ring",
+    "Glass break",
+    "Speech",
+    "Meow",
+    "Mouse click"
+  ];
+  const numEvents = Math.floor(Math.random() * 4) + 1; // 1 to 4 events
 
   for (let i = 0; i < numEvents; i++) {
     const startTime = parseFloat((Math.random() * 8).toFixed(1)); // 0 to 8s

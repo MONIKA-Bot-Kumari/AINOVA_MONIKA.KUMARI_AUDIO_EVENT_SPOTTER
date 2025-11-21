@@ -2,7 +2,7 @@
 
 import { analyzeAudioClip } from "@/lib/actions";
 import type { DetectedEvent } from "@/lib/types";
-import { AlertTriangle, DoorClosed, FileAudio, HelpCircle, Loader2, Mic, MicOff, Phone, Sparkles, UploadCloud, Siren, Speech, History } from "lucide-react";
+import { AlertTriangle, DoorClosed, FileAudio, HelpCircle, Loader2, Mic, MicOff, Phone, Sparkles, UploadCloud, Siren, Speech, History, Dog, Hand, Laugh, Cat, Keyboard, MousePointerClick, User, Clapperboard } from "lucide-react";
 import { useCallback, useRef, useState, useTransition } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -23,16 +23,28 @@ type AnalysisState = {
 };
 
 const eventIcons: { [key: string]: React.ElementType } = {
-  "Door Slam": DoorClosed,
-  "Phone Ring": Phone,
-  "Glass Break": AlertTriangle,
+  "Door slam": DoorClosed,
+  "Phone ring": Phone,
+  "Glass break": AlertTriangle,
   "Siren": Siren,
   "Speech": Speech,
+  "Dog bark": Dog,
+  "Clapping": Hand,
+  "Coughing": User,
+  "Keyboard typing": Keyboard,
+  "Laughing": Laugh,
+  "Meow": Cat,
+  "Mouse click": MousePointerClick,
   "Default": HelpCircle,
 };
 
 const getEventIcon = (eventName: string) => {
-  return eventIcons[eventName] || eventIcons.Default;
+  for (const key in eventIcons) {
+    if (eventName.toLowerCase().includes(key.toLowerCase())) {
+      return eventIcons[key];
+    }
+  }
+  return eventIcons.Default;
 };
 
 export default function AudioAnalysisClient() {
