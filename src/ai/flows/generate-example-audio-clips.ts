@@ -49,7 +49,7 @@ async function generateDoorSlamAudio(): Promise<string> {
         },
       },
     },
-    prompt: 'Door slam',
+    prompt: 'The sound of a door slamming shut.',
   });
   if (!media) {
     throw new Error('no media returned');
@@ -72,7 +72,7 @@ async function generatePhoneRingAudio(): Promise<string> {
         },
       },
     },
-    prompt: 'Phone ring',
+    prompt: 'The sound of a telephone ringing.',
   });
   if (!media) {
     throw new Error('no media returned');
@@ -110,5 +110,3 @@ async function toWav(
     writer.end();
   });
 }
-
-
