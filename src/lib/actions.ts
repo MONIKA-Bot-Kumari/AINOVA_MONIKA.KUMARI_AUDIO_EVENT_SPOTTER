@@ -26,9 +26,8 @@ const mockDetectEvents = (clipIdentifier: string): DetectedEvent[] => {
     "Speech",
     "Meow",
     "Mouse click",
-    "Baby sneeze",
   ];
-  const numEvents = Math.floor(Math.random() * 4) + 1; // 1 to 4 events
+  const numEvents = Math.floor(Math.random() * 3) + 1; // 1 to 3 events
 
   for (let i = 0; i < numEvents; i++) {
     const startTime = parseFloat((Math.random() * 8).toFixed(1)); // 0 to 8s
@@ -43,6 +42,18 @@ const mockDetectEvents = (clipIdentifier: string): DetectedEvent[] => {
       confidence: parseFloat(Math.random().toFixed(2)),
     });
   }
+
+  // Always add a baby sneeze event for demonstration
+  const sneezeStartTime = parseFloat((Math.random() * 8).toFixed(1));
+  events.push({
+      id: `evt-sneeze`,
+      event: "Baby sneeze",
+      startTime: sneezeStartTime,
+      endTime: parseFloat((sneezeStartTime + 0.8).toFixed(1)),
+      confidence: 0.85 + Math.random() * 0.15, // High confidence
+  });
+
+
   return events.sort((a, b) => a.startTime - b.startTime);
 };
 
