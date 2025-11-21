@@ -167,14 +167,8 @@ export default function AudioAnalysisClient() {
             <div className="h-px w-8 bg-border"></div>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            {!exampleClips ? (
-              <Button disabled variant="outline" size="lg"><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Loading Examples</Button>
-            ) : (
-              <>
-                <Button variant="outline" size="lg" onClick={() => handleExampleClick('door_slam')}>Use Door Slam Example</Button>
-                <Button variant="outline" size="lg" onClick={() => handleExampleClick('phone_ring')}>Use Phone Ring Example</Button>
-              </>
-            )}
+            <Button variant="outline" size="lg" onClick={() => handleExampleClick('door_slam')}>Use Door Slam Example</Button>
+            <Button variant="outline" size="lg" onClick={() => handleExampleClick('phone_ring')}>Use Phone Ring Example</Button>
           </div>
         </CardContent>
       </Card>
