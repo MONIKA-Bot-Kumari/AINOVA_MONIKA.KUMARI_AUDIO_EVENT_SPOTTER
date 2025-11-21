@@ -1,30 +1,14 @@
 "use client";
 
-import { analyzeAudioClip } from "@/lib/actions";
+import { analyzeAudioClip, type AnalysisResult } from "@/lib/actions";
 import type { DetectedEvent } from "@/lib/types";
 import { 
-  AlertTriangle, 
-  Mic, 
-  UploadCloud, 
-  FileAudio,
-  Loader2,
-  Volume2,
-  Signal,
-  Cpu,
-  Clock,
-  Settings2,
-  Power,
-  ChevronRight,
-  Wifi,
-  Radio,
-  Bell,
-  Zap,
-  MessageSquare,
-  HelpCircle,
-  ArrowLeft,
-  Baby,
+  AlertTriangle, Mic, UploadCloud, Loader2, Volume2, Bell, Zap, MessageSquare, HelpCircle,
+  ArrowLeft, Baby, Keyboard, Phone, DoorClosed, FileDown,
+  Wifi, Radio, Power, Clock, Cpu, Signal, FileAudio
 } from "lucide-react";
 import { useCallback, useRef, useState, useTransition, useEffect } from "react";
+import { jsPDF } from "jspdf";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,25 +19,17 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 
-type AnalysisResult = {
-  id: string;
-  events: DetectedEvent[];
-  peakLevel: number;
-  eventsPerHour: number;
-  processLoad: number;
-  uptime: string;
-  noiseFloor: number;
-  snr: number;
-};
-
 const eventConfig: { [key: string]: { icon: React.ElementType, color: string } } = {
   "Glass break": { icon: AlertTriangle, color: "text-cyan-400" },
   "Shout detected": { icon: Volume2, color: "text-cyan-400" },
-  "Siren freq": { icon: Bell, color: "text-red-500" },
+  "Siren": { icon: Bell, color: "text-red-500" },
   "Heavy impact": { icon: Zap, color: "text-orange-400" },
   "Conversation": { icon: MessageSquare, color: "text-blue-400" },
-  "Dog bark": { icon: HelpCircle, color: "text-yellow-400" }, // placeholder, assuming a dog icon
+  "Dog bark": { icon: HelpCircle, color: "text-yellow-400" },
   "Baby sneeze": { icon: Baby, color: "text-pink-400" },
+  "Keyboard typing": { icon: Keyboard, color: "text-indigo-400" },
+  "Phone ring": { icon: Phone, color: "text-purple-400" },
+  "Door slam": { icon: DoorClosed, color: "text-teal-400" },
   "Default": { icon: HelpCircle, color: "text-gray-400" },
 };
 
@@ -68,7 +44,8 @@ const getEventConfig = (eventName: string) => {
 
 
 export default function AudioAnalysisClient() {
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [analysisHistory, setAnalysisHistory] = useState<AnalysisResult[]>([]);
+  const [selectedAnalysis, setSelectedAnalysis] = useState<AnalysisResult | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -88,7 +65,7 @@ export default function AudioAnalysisClient() {
         const reader = new FileReader();
         reader.onload = (e) => {
           const dataUri = e.target?.result as string;
-          handleAnalysis(dataUri);
+          handleAnalysis(dataUri, file.name);
         };
         reader.readAsDataURL(file);
       } else {
@@ -97,13 +74,13 @@ export default function AudioAnalysisClient() {
     }
   };
 
-  const handleAnalysis = useCallback(async (audioDataUri: string) => {
+  const handleAnalysis = useCallback(async (audioDataUri: string, clipName: string) => {
     setIsAnalyzing(true);
     startTransition(async () => {
       try {
-        const result = await analyzeAudioClip("user_upload", audioDataUri);
-        const newAnalysis: AnalysisResult = { ...result, id: `analysis-${Date.now()}` };
-        setAnalysisResult(newAnalysis);
+        const result = await analyzeAudioClip(clipName, audioDataUri);
+        setAnalysisHistory(prev => [result, ...prev]);
+        setSelectedAnalysis(result);
       } catch (e: any) {
         toast({ variant: "destructive", title: "Analysis Failed", description: e.message });
       } finally {
@@ -117,7 +94,7 @@ export default function AudioAnalysisClient() {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream);
+      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' });
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0) recordedChunksRef.current.push(event.data);
       };
@@ -126,7 +103,7 @@ export default function AudioAnalysisClient() {
         const reader = new FileReader();
         reader.onload = (e) => {
           const dataUri = e.target?.result as string;
-          handleAnalysis(dataUri);
+          handleAnalysis(dataUri, `REC-${new Date().toISOString()}`);
         };
         reader.readAsDataURL(blob);
         recordedChunksRef.current = [];
@@ -138,6 +115,7 @@ export default function AudioAnalysisClient() {
 
       setTimeout(() => stopRecording(), 10000);
     } catch (err) {
+      console.error("Recording error:", err);
       toast({ variant: "destructive", title: "Microphone Access Denied", description: "Please enable microphone permissions." });
     }
   };
@@ -150,11 +128,42 @@ export default function AudioAnalysisClient() {
     }
   };
 
-  const resetAnalysis = () => {
-    setAnalysisResult(null);
+  const resetSelection = () => {
+    setSelectedAnalysis(null);
+  };
+
+  const generatePdf = (analysis: AnalysisResult) => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(22);
+    doc.text("SPOTTER.AI - Analysis Report", 20, 20);
+
+    doc.setFontSize(12);
+    doc.text(`Clip Name: ${analysis.name}`, 20, 30);
+    doc.text(`Timestamp: ${analysis.timestamp}`, 20, 37);
+
+    doc.setFontSize(16);
+    doc.text("Detected Events", 20, 50);
+
+    let yPos = 60;
+    analysis.events.forEach((event, index) => {
+      if (yPos > 270) {
+        doc.addPage();
+        yPos = 20;
+      }
+      doc.setFontSize(12);
+      doc.text(`Event: ${event.event}`, 25, yPos);
+      doc.setFontSize(10);
+      doc.text(`- Time: ${event.startTime.toFixed(2)}s - ${event.endTime.toFixed(2)}s`, 25, yPos + 5);
+      doc.text(`- Confidence: ${Math.round(event.confidence * 100)}%`, 25, yPos + 10);
+      yPos += 20;
+    });
+
+    doc.save(`analysis_${analysis.name.replace(/[^a-z0-9]/gi, '_')}.pdf`);
   };
   
   const isLoading = isAnalyzing || isPending;
+  const currentAnalysis = selectedAnalysis || analysisHistory[0];
 
   return (
     <div className="font-mono text-gray-300 p-4 lg:p-6 bg-background min-h-screen">
@@ -162,7 +171,7 @@ export default function AudioAnalysisClient() {
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-primary"></div>
           <h1 className="text-xl font-bold text-white">SPOTTER.AI</h1>
-          <span className="text-xs text-gray-500">v2.4.1-RC</span>
+          <span className="text-xs text-gray-500">v2.5.0-PRO</span>
         </div>
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-1.5 text-green-400"><Wifi size={14} /><span>CONNECTED</span></div>
@@ -178,7 +187,7 @@ export default function AudioAnalysisClient() {
             <CardHeader className="border-b border-gray-700 p-4">
               <CardTitle className="text-lg text-white">Room A-102 / MIC ARRAY 1</CardTitle>
               <CardDescription className="text-xs">
-                NOISE FLOOR: <span className="text-primary">{analysisResult?.noiseFloor ?? '-58'}dB</span> // SNR: <span className="text-primary">{analysisResult?.snr ?? '12'}dB</span>
+                NOISE FLOOR: <span className="text-primary">{currentAnalysis?.noiseFloor ?? '-58'}dB</span> // SNR: <span className="text-primary">{currentAnalysis?.snr ?? '12'}dB</span>
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4">
@@ -198,10 +207,10 @@ export default function AudioAnalysisClient() {
           </Card>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <StatCard title="PEAK LEVEL" value={`${analysisResult?.peakLevel ?? '-3.2'}`} unit="dB" />
-            <StatCard title="EVENTS/HR" value={`${analysisResult?.eventsPerHour ?? '142'}`} color="text-primary" />
-            <StatCard title="PROCESS LOAD" value={`${analysisResult?.processLoad ?? '12'}`} unit="%" color="text-primary" />
-            <StatCard title="UPTIME" value={analysisResult?.uptime ?? '14h 22m'} color="text-primary" />
+            <StatCard title="PEAK LEVEL" value={`${currentAnalysis?.peakLevel.toFixed(1) ?? '-3.2'}`} unit="dB" />
+            <StatCard title="EVENTS/HR" value={`${currentAnalysis?.eventsPerHour ?? '142'}`} color="text-primary" />
+            <StatCard title="PROCESS LOAD" value={`${currentAnalysis?.processLoad ?? '12'}`} unit="%" color="text-primary" />
+            <StatCard title="UPTIME" value={currentAnalysis?.uptime ?? '14h 22m'} color="text-primary" />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -220,13 +229,13 @@ export default function AudioAnalysisClient() {
         {/* Right Column */}
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold tracking-widest text-gray-400">DETECTION LOG</h2>
-                {analysisResult && (
+                <h2 className="text-sm font-bold tracking-widest text-gray-400">ANALYSIS LOG</h2>
+                {selectedAnalysis && (
                   <div className="flex items-center gap-2">
-                    <span className="bg-primary/20 text-primary text-xs font-bold px-2 py-1 rounded-md">
-                        {analysisResult.events.length} EVENTS
-                    </span>
-                    <Button onClick={resetAnalysis} variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:bg-primary/10 hover:text-primary">
+                    <Button onClick={() => generatePdf(selectedAnalysis)} variant="outline" size="sm" className="h-7 border-primary text-primary hover:bg-primary/10 hover:text-primary">
+                      <FileDown size={14} className="mr-1.5" /> PDF
+                    </Button>
+                    <Button onClick={resetSelection} variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:bg-primary/10 hover:text-primary">
                         <ArrowLeft size={16} />
                     </Button>
                   </div>
@@ -238,8 +247,16 @@ export default function AudioAnalysisClient() {
                 <div className="flex justify-center items-center h-64">
                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 </div>
-              ) : analysisResult ? (
-                analysisResult.events.map(event => <DetectionEventItem key={event.id} event={event} />)
+              ) : selectedAnalysis ? (
+                 selectedAnalysis.events.map(event => <DetectionEventItem key={event.id} event={event} />)
+              ) : analysisHistory.length > 0 ? (
+                <Card className="bg-card border-gray-700">
+                  <CardContent className="p-2 max-h-80 overflow-y-auto">
+                    {analysisHistory.map(hist => (
+                      <HistoryItem key={hist.id} analysis={hist} onSelect={() => setSelectedAnalysis(hist)} />
+                    ))}
+                  </CardContent>
+                </Card>
               ) : (
                 <Card className="bg-card border-gray-700 h-64 flex flex-col justify-center items-center text-center p-4">
                   <p className="text-gray-400 mb-4">Upload or record audio to begin analysis.</p>
@@ -260,6 +277,23 @@ export default function AudioAnalysisClient() {
                   </div>
                 </Card>
               )}
+               {analysisHistory.length > 0 && !selectedAnalysis && (
+                 <div className="flex gap-4 justify-center">
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="audio/*" />
+                    <Button onClick={triggerFileInput} variant="outline" size="sm" className="border-primary text-primary hover:bg-primary/10 hover:text-primary">
+                      <UploadCloud size={16} className="mr-2"/> Upload New
+                    </Button>
+                     {!isRecording ? (
+                      <Button onClick={startRecording} variant="outline" size="sm" className="border-primary text-primary hover:bg-primary/10 hover:text-primary">
+                        <Mic size={16} className="mr-2"/> Record New
+                      </Button>
+                    ) : (
+                      <Button onClick={stopRecording} variant="destructive" size="sm">
+                        Stop
+                      </Button>
+                    )}
+                 </div>
+               )}
             </div>
         </div>
       </div>
@@ -309,17 +343,28 @@ function SettingSwitch({ label, defaultChecked = false, isAlarm = false }: { lab
   );
 }
 
+function HistoryItem({ analysis, onSelect }: { analysis: AnalysisResult, onSelect: () => void }) {
+  const Icon = analysis.name.startsWith('REC-') ? Mic : FileAudio;
+  return (
+    <button onClick={onSelect} className="w-full text-left p-2 rounded-md hover:bg-primary/10 transition-colors flex items-center gap-3">
+      <Icon className="w-5 h-5 text-primary flex-shrink-0" />
+      <div className="flex-grow overflow-hidden">
+        <p className="text-sm text-white truncate font-medium">{analysis.name}</p>
+        <p className="text-xs text-gray-400">{analysis.timestamp} - {analysis.events.length} events</p>
+      </div>
+    </button>
+  )
+}
 
 function DetectionEventItem({ event }: { event: DetectedEvent }) {
   const { icon: Icon, color } = getEventConfig(event.event);
-  const progressColor = color.replace('text-', 'bg-').replace('-400', '-500').replace('-500', '-600');
+  const progressColor = color.replace('text-', 'bg-');
 
-  // Dummy timestamp for display
   const date = new Date();
   const timestamp = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${(date.getSeconds() - Math.floor(event.startTime)).toString().padStart(2, '0')}`;
 
   return (
-    <Card className="bg-card border border-gray-700 overflow-hidden">
+    <Card className="bg-card border border-gray-700/50 overflow-hidden">
       <div className="p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -328,9 +373,9 @@ function DetectionEventItem({ event }: { event: DetectedEvent }) {
           </div>
           <div className="text-xs text-gray-400 font-mono">{timestamp}</div>
         </div>
-        <div className="flex items-center justify-between text-xs">
-          <Progress value={event.confidence * 100} className={`w-2/3 h-1.5 ${progressColor}`} />
-          <span className="text-gray-400">{Math.round(event.confidence * 100)}% CONF</span>
+        <div className="flex items-center justify-between text-xs gap-4">
+          <Progress value={event.confidence * 100} className={cn("w-2/3 h-1.5", progressColor)} />
+          <span className="text-gray-400 font-semibold">{Math.round(event.confidence * 100)}% CONF</span>
         </div>
       </div>
     </Card>
