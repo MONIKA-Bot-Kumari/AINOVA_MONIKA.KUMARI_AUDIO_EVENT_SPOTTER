@@ -49,7 +49,7 @@ async function generateDoorSlamAudio(): Promise<string> {
         },
       },
     },
-    prompt: 'The sound of a door slamming shut.',
+    prompt: 'Hey, who just slammed the door?',
   });
   if (!media) {
     throw new Error('no media returned');
@@ -72,7 +72,7 @@ async function generatePhoneRingAudio(): Promise<string> {
         },
       },
     },
-    prompt: 'The sound of a telephone ringing.',
+    prompt: 'Your phone is ringing, you should probably answer it.',
   });
   if (!media) {
     throw new Error('no media returned');
