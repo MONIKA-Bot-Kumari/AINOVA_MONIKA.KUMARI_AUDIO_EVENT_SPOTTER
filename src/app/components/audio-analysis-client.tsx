@@ -2,387 +2,325 @@
 
 import { analyzeAudioClip } from "@/lib/actions";
 import type { DetectedEvent } from "@/lib/types";
-import { AlertTriangle, DoorClosed, FileAudio, HelpCircle, Loader2, Mic, MicOff, Phone, Sparkles, UploadCloud, Siren, Speech, History, Dog, Hand, Laugh, Cat, Keyboard, MousePointerClick, User, Clapperboard, Baby } from "lucide-react";
-import { useCallback, useRef, useState, useTransition } from "react";
+import { 
+  AlertTriangle, 
+  Mic, 
+  UploadCloud, 
+  FileAudio,
+  Loader2,
+  Volume2,
+  Signal,
+  Cpu,
+  Clock,
+  Settings2,
+  Power,
+  ChevronRight,
+  Wifi,
+  Radio,
+  Bell,
+  Zap,
+  MessageSquare,
+  HelpCircle,
+} from "lucide-react";
+import { useCallback, useRef, useState, useTransition, useEffect } from "react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Progress } from "@/components/ui/progress";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-type AnalysisState = {
+
+type AnalysisResult = {
   id: string;
   events: DetectedEvent[];
-  summary: string;
-  audioSrc: string;
-  fileName: string;
-  timestamp: Date;
+  peakLevel: number;
+  eventsPerHour: number;
+  processLoad: number;
+  uptime: string;
+  noiseFloor: number;
+  snr: number;
 };
 
-const eventIcons: { [key: string]: React.ElementType } = {
-  "Door slam": DoorClosed,
-  "Phone ring": Phone,
-  "Glass break": AlertTriangle,
-  "Siren": Siren,
-  "Speech": Speech,
-  "Dog bark": Dog,
-  "Clapping": Hand,
-  "Coughing": User,
-  "Keyboard typing": Keyboard,
-  "Laughing": Laugh,
-  "Meow": Cat,
-  "Mouse click": MousePointerClick,
-  "Baby sneeze": Baby,
-  "Default": HelpCircle,
+const eventConfig: { [key: string]: { icon: React.ElementType, color: string } } = {
+  "Glass break": { icon: AlertTriangle, color: "text-cyan-400" },
+  "Shout detected": { icon: Volume2, color: "text-cyan-400" },
+  "Siren freq": { icon: Bell, color: "text-red-500" },
+  "Heavy impact": { icon: Zap, color: "text-orange-400" },
+  "Conversation": { icon: MessageSquare, color: "text-blue-400" },
+  "Dog bark": { icon: HelpCircle, color: "text-yellow-400" }, // placeholder
+  "Default": { icon: HelpCircle, color: "text-gray-400" },
 };
 
-const getEventIcon = (eventName: string) => {
-  for (const key in eventIcons) {
+const getEventConfig = (eventName: string) => {
+  for (const key in eventConfig) {
     if (eventName.toLowerCase().includes(key.toLowerCase())) {
-      return eventIcons[key];
+      return eventConfig[key];
     }
   }
-  return eventIcons.Default;
+  return eventConfig.Default;
 };
 
+
 export default function AudioAnalysisClient() {
-  const [analysisHistory, setAnalysisHistory] = useState<AnalysisState[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const [hoveredEventId, setHoveredEventId] = useState<string | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [hasMicPermission, setHasMicPermission] = useState(false);
-  
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
-
   const { toast } = useToast();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        toast({
-            variant: "destructive",
-            title: "File too large",
-            description: "Please upload an audio file smaller than 5MB.",
-        });
+        toast({ variant: "destructive", title: "File too large", description: "Please upload an audio file smaller than 5MB." });
         return;
       }
       if (file.type.startsWith('audio/')) {
         const reader = new FileReader();
         reader.onload = (e) => {
           const dataUri = e.target?.result as string;
-          handleAnalysis(dataUri, file.name);
+          handleAnalysis(dataUri);
         };
         reader.readAsDataURL(file);
       } else {
-        toast({
-            variant: "destructive",
-            title: "Invalid file type",
-            description: "Please upload a valid audio file.",
-        });
+        toast({ variant: "destructive", title: "Invalid file type", description: "Please upload a valid audio file." });
       }
     }
   };
 
-  const handleAnalysis = useCallback(async (
-    audioSrc: string,
-    fileName: string
-  ) => {
-    setIsLoading(true);
-    setError(null);
-
+  const handleAnalysis = useCallback(async (audioDataUri: string) => {
+    setIsAnalyzing(true);
     startTransition(async () => {
       try {
-        const result = await analyzeAudioClip("user_upload", audioSrc);
-        const newAnalysis: AnalysisState = { ...result, id: `analysis-${Date.now()}`, fileName, timestamp: new Date() };
-        setAnalysisHistory(prev => [newAnalysis, ...prev]);
+        const result = await analyzeAudioClip("user_upload", audioDataUri);
+        const newAnalysis: AnalysisResult = { ...result, id: `analysis-${Date.now()}` };
+        setAnalysisResult(newAnalysis);
       } catch (e: any) {
-        setError(e.message);
-        toast({
-          variant: "destructive",
-          title: "Analysis Failed",
-          description: e.message,
-        });
+        toast({ variant: "destructive", title: "Analysis Failed", description: e.message });
       } finally {
-        setIsLoading(false);
+        setIsAnalyzing(false);
       }
     });
   }, [toast]);
   
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
-  };
+  const triggerFileInput = () => fileInputRef.current?.click();
 
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setHasMicPermission(true);
       mediaRecorderRef.current = new MediaRecorder(stream);
       mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
-        }
+        if (event.data.size > 0) recordedChunksRef.current.push(event.data);
       };
       mediaRecorderRef.current.onstop = () => {
         const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
         const reader = new FileReader();
         reader.onload = (e) => {
           const dataUri = e.target?.result as string;
-          handleAnalysis(dataUri, `Live Recording ${new Date().toLocaleString()}`);
+          handleAnalysis(dataUri);
         };
         reader.readAsDataURL(blob);
         recordedChunksRef.current = [];
-        // Stop all tracks to release the microphone
         stream.getTracks().forEach(track => track.stop());
       };
       mediaRecorderRef.current.start();
       setIsRecording(true);
       toast({ title: "Recording started", description: "Recording for 10 seconds..." });
 
-      setTimeout(() => {
-        stopRecording();
-      }, 10000);
+      setTimeout(() => stopRecording(), 10000);
     } catch (err) {
-      console.error("Error accessing microphone:", err);
-      setHasMicPermission(false);
-      toast({
-        variant: "destructive",
-        title: "Microphone Access Denied",
-        description: "Please enable microphone permissions in your browser settings.",
-      });
+      toast({ variant: "destructive", title: "Microphone Access Denied", description: "Please enable microphone permissions." });
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+    if (mediaRecorderRef.current?.state === "recording") {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       toast({ title: "Recording stopped", description: "Processing audio..." });
     }
   };
+  
+  const isLoading = isAnalyzing || isPending;
 
   return (
-    <div className="space-y-8">
-      <header className="text-center">
-        <h1 className="font-headline text-4xl font-bold tracking-tight text-primary sm:text-5xl md:text-6xl">
-          Audio Insights
-        </h1>
-        <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
-          Upload or record a 10-second audio clip to detect short events. Our AI will spot and timeline them for you.
-        </p>
+    <div className="font-mono text-gray-300 p-4 lg:p-6 bg-background min-h-screen">
+      <header className="flex justify-between items-center border-b border-gray-700 pb-3 mb-6">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-primary"></div>
+          <h1 className="text-xl font-bold text-white">SPOTTER.AI</h1>
+          <span className="text-xs text-gray-500">v2.4.1-RC</span>
+        </div>
+        <div className="flex items-center gap-4 text-xs">
+          <div className="flex items-center gap-1.5 text-green-400"><Wifi size={14} /><span>CONNECTED</span></div>
+          <div className="flex items-center gap-1.5 text-green-400"><Radio size={14} /><span>LIVE FEED</span></div>
+          <div className="flex items-center gap-1.5 text-green-400"><Power size={14} /><span>PWR 98%</span></div>
+        </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UploadCloud className="text-primary" />
-              <span>Analyze a File</span>
-            </CardTitle>
-            <CardDescription>
-              Upload your own 10s audio clip to get started.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center gap-4 p-6">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              className="hidden"
-              accept="audio/*"
-            />
-            <Button onClick={triggerFileInput} size="lg" className="w-full sm:w-auto" disabled={isPending || isRecording}>
-              <UploadCloud className="mr-2 h-5 w-5" />
-              Upload Audio Clip
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mic className="text-primary" />
-              <span>Live Analysis</span>
-            </CardTitle>
-            <CardDescription>
-              Record 10s of audio from your microphone.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center gap-4 p-6">
-            {!isRecording ? (
-              <Button onClick={startRecording} size="lg" className="w-full sm:w-auto" disabled={isPending || isRecording}>
-                <Mic className="mr-2 h-5 w-5" />
-                Start Recording
-              </Button>
-            ) : (
-              <Button onClick={stopRecording} size="lg" variant="destructive" className="w-full sm:w-auto" disabled={isPending}>
-                <MicOff className="mr-2 h-5 w-5" />
-                Stop Recording
-              </Button>
-            )}
-             {!hasMicPermission && (
-              <Alert variant="destructive" className="mt-4">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Microphone Access Required</AlertTitle>
-                <AlertDescription>
-                  Allow microphone access to use live recording.
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {isLoading && <LoadingState />}
-
-      {error && !isLoading && (
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {analysisHistory.length > 0 && (
-        <Card className="shadow-lg">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <History className="text-primary" />
-                    <span>Analysis History</span>
-                </CardTitle>
-                <CardDescription>Your past analysis results.</CardDescription>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="bg-card border-gray-700 shadow-lg">
+            <CardHeader className="border-b border-gray-700 p-4">
+              <CardTitle className="text-lg text-white">Room A-102 / MIC ARRAY 1</CardTitle>
+              <CardDescription className="text-xs">
+                NOISE FLOOR: <span className="text-primary">{analysisResult?.noiseFloor ?? '-58'}dB</span> // SNR: <span className="text-primary">{analysisResult?.snr ?? '12'}dB</span>
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-8">
-              {analysisHistory.map((analysis) => (
-                <div key={analysis.id} className="space-y-6 border-b pb-6 last:border-b-0 last:pb-0">
-                  <Card className="shadow-lg overflow-hidden">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Sparkles className="text-primary" />
-                        <span>AI Summary</span>
-                      </CardTitle>
-                      <CardDescription>File: {analysis.fileName} ({analysis.timestamp.toLocaleTimeString()})</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-foreground">{analysis.summary}</p>
-                    </CardContent>
-                  </Card>
-                  
-                  <div className="space-y-4">
-                      <div className="w-full">
-                          <audio ref={audioRef} src={analysis.audioSrc} controls className="w-full rounded-md"/>
-                          <div className="mt-2 h-10 w-full rounded-lg bg-secondary relative overflow-hidden">
-                              <div className="absolute inset-0 w-full h-full">
-                              {analysis.events.map(event => {
-                                  const left = (event.startTime / 10) * 100;
-                                  const width = ((event.endTime - event.startTime) / 10) * 100;
-                                  const Icon = getEventIcon(event.event);
-                                  return (
-                                      <div
-                                          key={event.id}
-                                          className={cn(
-                                              "absolute top-0 h-full flex items-center justify-center bg-accent/70 transition-all duration-200 ease-in-out cursor-pointer",
-                                              hoveredEventId === event.id && "ring-2 ring-offset-2 ring-accent ring-offset-secondary"
-                                          )}
-                                          style={{ left: `${left}%`, width: `${width}%` }}
-                                          onMouseEnter={() => setHoveredEventId(event.id)}
-                                          onMouseLeave={() => setHoveredEventId(null)}
-                                          onClick={() => audioRef.current && (audioRef.current.currentTime = event.startTime)}
-                                      >
-                                          <Icon className="h-5 w-5 text-accent-foreground" />
-                                      </div>
-                                  )
-                              })}
-                              </div>
-                          </div>
-                      </div>
-
-                      <div className="overflow-x-auto">
-                          <Table>
-                              <TableHeader>
-                                  <TableRow>
-                                      <TableHead className="w-[48px]"></TableHead>
-                                      <TableHead>Event</TableHead>
-                                      <TableHead className="text-right">Start Time</TableHead>
-                                      <TableHead className="text-right">End Time</TableHead>
-                                      <TableHead className="text-right">Confidence</TableHead>
-                                  </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                  {analysis.events.length > 0 ? analysis.events.map(event => {
-                                      const Icon = getEventIcon(event.event);
-                                      return (
-                                      <TableRow
-                                          key={event.id}
-                                          onMouseEnter={() => setHoveredEventId(event.id)}
-                                          onMouseLeave={() => setHoveredEventId(null)}
-                                          className={cn(
-                                              "cursor-pointer transition-colors",
-                                              hoveredEventId === event.id && "bg-secondary"
-                                          )}
-                                          onClick={() => audioRef.current && (audioRef.current.currentTime = event.startTime)}
-                                      >
-                                          <TableCell><Icon className="h-5 w-5 text-muted-foreground" /></TableCell>
-                                          <TableCell className="font-medium">{event.event}</TableCell>
-                                          <TableCell className="text-right">{event.startTime.toFixed(2)}s</TableCell>
-                                          <TableCell className="text-right">{event.endTime.toFixed(2)}s</TableCell>
-                                          <TableCell className="text-right font-mono">{(event.confidence * 100).toFixed(0)}%</TableCell>
-                                      </TableRow>
-                                      )}) : (
-                                      <TableRow>
-                                          <TableCell colSpan={5} className="text-center text-muted-foreground">No events detected.</TableCell>
-                                      </TableRow>
-                                      )}
-                              </TableBody>
-                          </Table>
-                      </div>
-                  </div>
-                </div>
-              ))}
+            <CardContent className="p-4">
+              <div className="text-xs text-green-400 mb-2 flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+                LIVE INPUT MONITOR
+              </div>
+              <div className="h-24 w-full bg-gray-900/50 rounded-md flex items-end gap-1 p-2">
+                {[...Array(30)].map((_, i) => (
+                  <div key={i} className="bg-primary w-full rounded-t-sm" style={{height: `${Math.random() * 80 + 10}%`}}></div>
+                ))}
+              </div>
             </CardContent>
           </Card>
-      )}
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <StatCard title="PEAK LEVEL" value={`${analysisResult?.peakLevel ?? '-3.2'}`} unit="dB" />
+            <StatCard title="EVENTS/HR" value={`${analysisResult?.eventsPerHour ?? '142'}`} color="text-primary" />
+            <StatCard title="PROCESS LOAD" value={`${analysisResult?.processLoad ?? '12'}`} unit="%" color="text-primary" />
+            <StatCard title="UPTIME" value={analysisResult?.uptime ?? '14h 22m'} color="text-primary" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <SettingsCard title="SIGNAL PROCESSING">
+              <SettingSlider label="SENSITIVITY THRESHOLD" value={-42} unit="dB" />
+              <SettingSlider label="NOISE GATE" value={-60} unit="dB" />
+            </SettingsCard>
+            <SettingsCard title="FILTERS & MODE">
+              <SettingSwitch label="HIGH-PASS FILTER (80Hz)" defaultChecked={true} />
+              <SettingSwitch label="VOCAL ISOLATION" />
+              <SettingSwitch label="ALARM PRIORITY" defaultChecked={true} isAlarm={true} />
+            </SettingsCard>
+          </div>
+        </div>
+
+        {/* Right Column */}
+        <div className="space-y-6">
+            <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold tracking-widest text-gray-400">DETECTION LOG</h2>
+                {analysisResult && (
+                    <span className="bg-primary/20 text-primary text-xs font-bold px-2 py-1 rounded-md">
+                        {analysisResult.events.length} EVENTS
+                    </span>
+                )}
+            </div>
+            
+            <div className="space-y-3">
+              {isLoading ? (
+                <div className="flex justify-center items-center h-64">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+              ) : analysisResult ? (
+                analysisResult.events.map(event => <DetectionEventItem key={event.id} event={event} />)
+              ) : (
+                <Card className="bg-card border-gray-700 h-64 flex flex-col justify-center items-center text-center p-4">
+                  <p className="text-gray-400 mb-4">Upload or record audio to begin analysis.</p>
+                  <div className="flex gap-4">
+                  <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="audio/*" />
+                    <Button onClick={triggerFileInput} variant="outline" className="border-primary text-primary hover:bg-primary/10 hover:text-primary">
+                      <UploadCloud size={16} className="mr-2"/> Upload File
+                    </Button>
+                    {!isRecording ? (
+                      <Button onClick={startRecording} variant="outline" className="border-primary text-primary hover:bg-primary/10 hover:text-primary">
+                        <Mic size={16} className="mr-2"/> Record
+                      </Button>
+                    ) : (
+                      <Button onClick={stopRecording} variant="destructive">
+                        Stop
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              )}
+            </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-function LoadingState() {
-    return (
-        <div className="space-y-8">
-            <Card>
-                <CardHeader>
-                    <Skeleton className="h-6 w-40" />
-                    <Skeleton className="h-4 w-64" />
-                </CardHeader>
-                <CardContent>
-                    <Skeleton className="h-5 w-full" />
-                </CardContent>
-            </Card>
-             <Card>
-                <CardHeader>
-                    <Skeleton className="h-6 w-32" />
-                    <Skeleton className="h-4 w-48" />
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="w-full">
-                        <Skeleton className="h-12 w-full rounded-md" />
-                        <Skeleton className="mt-2 h-10 w-full rounded-lg" />
-                    </div>
-                     <div className="space-y-2">
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                </CardContent>
-            </Card>
+
+function StatCard({ title, value, unit, color = "text-white" }: { title: string, value: string | number, unit?: string, color?: string }) {
+  return (
+    <Card className="bg-card border-gray-700 p-3">
+      <CardDescription className="text-xs text-gray-400">{title}</CardDescription>
+      <CardTitle className={cn("text-2xl font-bold", color)}>
+        {value}{unit && <span className="text-base ml-1">{unit}</span>}
+      </CardTitle>
+    </Card>
+  );
+}
+
+function SettingsCard({ title, children }: { title: string, children: React.ReactNode }) {
+  return (
+    <Card className="bg-card border-gray-700 p-4">
+      <CardDescription className="text-xs text-gray-400 mb-4">{title}</CardDescription>
+      <div className="space-y-4">{children}</div>
+    </Card>
+  );
+}
+
+function SettingSlider({ label, value, unit }: { label: string, value: number, unit: string }) {
+  return (
+    <div>
+      <div className="flex justify-between items-center text-sm mb-1">
+        <label className="text-gray-300">{label}</label>
+        <span className="text-primary font-bold">{value}{unit}</span>
+      </div>
+      <Slider defaultValue={[value]} max={0} min={-100} step={1} className="[&>span]:bg-primary [&>span]:h-4 [&>span]:w-4 [&>span]:border-2 [&>span]:border-background" />
+    </div>
+  );
+}
+
+function SettingSwitch({ label, defaultChecked = false, isAlarm = false }: { label: string, defaultChecked?: boolean, isAlarm?: boolean }) {
+  return (
+    <div className="flex items-center justify-between">
+      <label className={cn("text-sm font-medium", isAlarm ? "text-red-400" : "text-gray-300")}>{label}</label>
+      <Switch defaultChecked={defaultChecked} className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-gray-600" />
+    </div>
+  );
+}
+
+
+function DetectionEventItem({ event }: { event: DetectedEvent }) {
+  const { icon: Icon, color } = getEventConfig(event.event);
+  const progressColor = color.replace('text-', 'bg-').replace('-400', '-500').replace('-500', '-600');
+
+  // Dummy timestamp for display
+  const date = new Date();
+  const timestamp = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${(date.getSeconds() - Math.floor(event.startTime)).toString().padStart(2, '0')}`;
+
+  return (
+    <Card className="bg-card border border-gray-700 overflow-hidden">
+      <div className="p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Icon size={16} className={color} />
+            <span className="font-bold text-sm text-white tracking-wider">{event.event.toUpperCase()}</span>
+          </div>
+          <div className="text-xs text-gray-400 font-mono">{timestamp}</div>
         </div>
-    )
+        <div className="flex items-center justify-between text-xs">
+          <Progress value={event.confidence * 100} className={`w-2/3 h-1.5 ${progressColor}`} />
+          <span className="text-gray-400">{Math.round(event.confidence * 100)}% CONF</span>
+        </div>
+      </div>
+    </Card>
+  );
 }
