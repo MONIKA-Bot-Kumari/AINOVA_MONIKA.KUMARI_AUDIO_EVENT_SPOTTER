@@ -25,7 +25,8 @@ const mockDetectEvents = (clipIdentifier: string): DetectedEvent[] => {
     "Glass break",
     "Speech",
     "Meow",
-    "Mouse click"
+    "Mouse click",
+    "Baby sneeze",
   ];
   const numEvents = Math.floor(Math.random() * 4) + 1; // 1 to 4 events
 

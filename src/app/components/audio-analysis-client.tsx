@@ -2,7 +2,7 @@
 
 import { analyzeAudioClip } from "@/lib/actions";
 import type { DetectedEvent } from "@/lib/types";
-import { AlertTriangle, DoorClosed, FileAudio, HelpCircle, Loader2, Mic, MicOff, Phone, Sparkles, UploadCloud, Siren, Speech, History, Dog, Hand, Laugh, Cat, Keyboard, MousePointerClick, User, Clapperboard } from "lucide-react";
+import { AlertTriangle, DoorClosed, FileAudio, HelpCircle, Loader2, Mic, MicOff, Phone, Sparkles, UploadCloud, Siren, Speech, History, Dog, Hand, Laugh, Cat, Keyboard, MousePointerClick, User, Clapperboard, Baby } from "lucide-react";
 import { useCallback, useRef, useState, useTransition } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -35,6 +35,7 @@ const eventIcons: { [key: string]: React.ElementType } = {
   "Laughing": Laugh,
   "Meow": Cat,
   "Mouse click": MousePointerClick,
+  "Baby sneeze": Baby,
   "Default": HelpCircle,
 };
 
