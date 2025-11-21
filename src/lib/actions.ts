@@ -92,13 +92,3 @@ export async function analyzeAudioClip(
     throw new Error("Failed to analyze the audio clip. Please try again.");
   }
 }
-
-
-export async function getExampleClips() {
-    try {
-        return await generateExampleAudioClips();
-    } catch(error) {
-        console.error("Error generating example clips:", error);
-        throw new Error("Could not generate example audio clips.");
-    }
-}

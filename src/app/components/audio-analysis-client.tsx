@@ -1,9 +1,9 @@
 "use client";
 
-import { analyzeAudioClip, getExampleClips } from "@/lib/actions";
+import { analyzeAudioClip } from "@/lib/actions";
 import type { DetectedEvent } from "@/lib/types";
 import { AlertTriangle, DoorClosed, FileAudio, HelpCircle, Loader2, Phone, Sparkles, UploadCloud, Siren, Speech } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -39,22 +39,10 @@ export default function AudioAnalysisClient() {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [hoveredEventId, setHoveredEventId] = useState<string | null>(null);
-  const [exampleClips, setExampleClips] = useState<{ doorSlam: string; phoneRing: string } | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const { toast } = useToast();
-
-  useEffect(() => {
-    getExampleClips().then(setExampleClips).catch(err => {
-      console.error(err);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Could not load example audio clips.",
-      });
-    });
-  }, [toast]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -71,7 +59,7 @@ export default function AudioAnalysisClient() {
         const reader = new FileReader();
         reader.onload = (e) => {
           const dataUri = e.target?.result as string;
-          handleAnalysis("user_upload", dataUri, file.name);
+          handleAnalysis(dataUri, file.name);
         };
         reader.readAsDataURL(file);
       } else {
@@ -85,7 +73,6 @@ export default function AudioAnalysisClient() {
   };
 
   const handleAnalysis = useCallback(async (
-    clipType: "door_slam" | "phone_ring" | "user_upload",
     audioSrc: string,
     fileName: string
   ) => {
@@ -95,7 +82,7 @@ export default function AudioAnalysisClient() {
 
     startTransition(async () => {
       try {
-        const result = await analyzeAudioClip(clipType, audioSrc);
+        const result = await analyzeAudioClip("user_upload", audioSrc);
         setAnalysis({...result, fileName});
       } catch (e: any) {
         setError(e.message);
@@ -109,20 +96,6 @@ export default function AudioAnalysisClient() {
       }
     });
   }, [toast]);
-
-  const handleExampleClick = (clipType: "door_slam" | "phone_ring") => {
-    if (!exampleClips) {
-      toast({
-        variant: "destructive",
-        title: "Examples not ready",
-        description: "Example clips are still being generated. Please wait a moment.",
-      });
-      return;
-    }
-    const audioSrc = clipType === "door_slam" ? exampleClips.doorSlam : exampleClips.phoneRing;
-    const fileName = clipType === "door_slam" ? "Door Slam Example" : "Phone Ring Example";
-    handleAnalysis(clipType, audioSrc, fileName);
-  };
   
   const triggerFileInput = () => {
     fileInputRef.current?.click();
@@ -146,7 +119,7 @@ export default function AudioAnalysisClient() {
             <span>Start Analysis</span>
           </CardTitle>
           <CardDescription>
-            Upload your own 10s audio clip or use one of our examples.
+            Upload your own 10s audio clip to get started.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col sm:flex-row items-center justify-center gap-4 p-6">
@@ -161,15 +134,6 @@ export default function AudioAnalysisClient() {
             <UploadCloud className="mr-2 h-5 w-5" />
             Upload Audio Clip
           </Button>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <div className="h-px w-8 bg-border"></div>
-            OR
-            <div className="h-px w-8 bg-border"></div>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button variant="outline" size="lg" onClick={() => handleExampleClick('door_slam')}>Use Door Slam Example</Button>
-            <Button variant="outline" size="lg" onClick={() => handleExampleClick('phone_ring')}>Use Phone Ring Example</Button>
-          </div>
         </CardContent>
       </Card>
       
