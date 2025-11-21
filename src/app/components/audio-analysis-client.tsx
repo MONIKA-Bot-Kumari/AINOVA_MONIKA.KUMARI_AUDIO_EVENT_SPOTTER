@@ -53,6 +53,16 @@ export default function AudioAnalysisClient() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const { toast } = useToast();
+  const [monitorBarHeights, setMonitorBarHeights] = useState<number[]>([]);
+
+  useEffect(() => {
+    // Generate random bar heights only on the client-side to avoid hydration errors
+    const interval = setInterval(() => {
+      const newHeights = [...Array(30)].map(() => Math.random() * 80 + 10);
+      setMonitorBarHeights(newHeights);
+    }, 200);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -199,8 +209,8 @@ export default function AudioAnalysisClient() {
                 LIVE INPUT MONITOR
               </div>
               <div className="h-24 w-full bg-gray-900/50 rounded-md flex items-end gap-1 p-2">
-                {[...Array(30)].map((_, i) => (
-                  <div key={i} className="bg-primary w-full rounded-t-sm" style={{height: `${Math.random() * 80 + 10}%`}}></div>
+                {monitorBarHeights.map((height, i) => (
+                  <div key={i} className="bg-primary w-full rounded-t-sm" style={{height: `${height}%`}}></div>
                 ))}
               </div>
             </CardContent>
