@@ -2,7 +2,6 @@
 
 import { summarizeInsights } from "@/ai/flows/summarize-insights";
 import type { DetectedEvent } from "./types";
-import { generateExampleAudioClips } from "@/ai/flows/generate-example-audio-clips";
 
 type AnalysisResult = {
   events: DetectedEvent[];
@@ -12,42 +11,6 @@ type AnalysisResult = {
 
 // Since we don't have a real audio event detection model, we'll mock the detection process.
 const mockDetectEvents = (clipIdentifier: string): DetectedEvent[] => {
-  if (clipIdentifier === "door_slam") {
-    return [
-      {
-        id: "evt-door-1",
-        event: "Door Slam",
-        startTime: 1.8,
-        endTime: 2.5,
-        confidence: 0.94,
-      },
-      {
-        id: "evt-speech-1",
-        event: "Speech",
-        startTime: 3.5,
-        endTime: 5.1,
-        confidence: 0.78,
-      },
-    ];
-  }
-  if (clipIdentifier === "phone_ring") {
-    return [
-      {
-        id: "evt-phone-1",
-        event: "Phone Ring",
-        startTime: 4.1,
-        endTime: 6.2,
-        confidence: 0.89,
-      },
-       {
-        id: "evt-speech-2",
-        event: "Speech",
-        startTime: 0.5,
-        endTime: 2.5,
-        confidence: 0.81,
-      },
-    ];
-  }
   // For user uploads, generate random events
   const events: DetectedEvent[] = [];
   const eventTypes = ["Door Slam", "Phone Ring", "Glass Break", "Siren", "Speech"];
@@ -70,13 +33,14 @@ const mockDetectEvents = (clipIdentifier: string): DetectedEvent[] => {
 };
 
 export async function analyzeAudioClip(
-  clipIdentifier: "door_slam" | "phone_ring" | "user_upload",
+  clipIdentifier: "user_upload",
   audioDataUri: string
 ): Promise<AnalysisResult> {
   try {
-    const detectedEvents = mockDetectEvents(clipIdentifier);
+    const allDetectedEvents = mockDetectEvents(clipIdentifier);
+    const detectedEvents = allDetectedEvents.filter(event => event.confidence >= 0.8);
 
-    let summary = "No significant events were detected.";
+    let summary = "No significant events were detected with high confidence.";
     if (detectedEvents.length > 0) {
       const summaryResult = await summarizeInsights(detectedEvents);
       summary = summaryResult.summary;
