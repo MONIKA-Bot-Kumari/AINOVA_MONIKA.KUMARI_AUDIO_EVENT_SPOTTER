@@ -28,8 +28,10 @@ const generateExampleAudioClipsFlow = ai.defineFlow(
     outputSchema: GenerateExampleAudioClipsOutputSchema,
   },
   async () => {
-    const doorSlam = await generateDoorSlamAudio();
-    const phoneRing = await generatePhoneRingAudio();
+    const [doorSlam, phoneRing] = await Promise.all([
+        generateAudio('Who slammed the door just now?', 'Algenib'),
+        generateAudio('I think your phone is ringing.', 'Achernar')
+    ]);
 
     return {
       doorSlam,
@@ -38,21 +40,21 @@ const generateExampleAudioClipsFlow = ai.defineFlow(
   }
 );
 
-async function generateDoorSlamAudio(): Promise<string> {
+async function generateAudio(prompt: string, voiceName: string): Promise<string> {
   const { media } = await ai.generate({
     model: ai.model('gemini-2.5-flash-preview-tts'),
     config: {
       responseModalities: ['AUDIO'],
       speechConfig: {
         voiceConfig: {
-          prebuiltVoiceConfig: { voiceName: 'Algenib' },
+          prebuiltVoiceConfig: { voiceName },
         },
       },
     },
-    prompt: 'Who slammed the door just now?',
+    prompt,
   });
   if (!media) {
-    throw new Error('no media returned');
+    throw new Error(`no media returned for prompt: ${prompt}`);
   }
   const audioBuffer = Buffer.from(
     media.url.substring(media.url.indexOf(',') + 1),
@@ -61,28 +63,6 @@ async function generateDoorSlamAudio(): Promise<string> {
   return 'data:audio/wav;base64,' + (await toWav(audioBuffer));
 }
 
-async function generatePhoneRingAudio(): Promise<string> {
-  const { media } = await ai.generate({
-    model: ai.model('gemini-2.5-flash-preview-tts'),
-    config: {
-      responseModalities: ['AUDIO'],
-      speechConfig: {
-        voiceConfig: {
-          prebuiltVoiceConfig: { voiceName: 'Achernar' },
-        },
-      },
-    },
-    prompt: 'I think your phone is ringing.',
-  });
-  if (!media) {
-    throw new Error('no media returned');
-  }
-  const audioBuffer = Buffer.from(
-    media.url.substring(media.url.indexOf(',') + 1),
-    'base64'
-  );
-  return 'data:audio/wav;base64,' + (await toWav(audioBuffer));
-}
 
 async function toWav(
   pcmData: Buffer,

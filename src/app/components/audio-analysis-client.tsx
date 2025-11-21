@@ -3,11 +3,11 @@
 import { analyzeAudioClip, type AnalysisResult } from "@/lib/actions";
 import type { DetectedEvent } from "@/lib/types";
 import { 
-  AlertTriangle, Mic, UploadCloud, Loader2, Volume2, Bell, Zap, MessageSquare, HelpCircle,
+  AlertTriangle, Mic, UploadCloud, Loader2, Bell, Zap, MessageSquare, HelpCircle,
   ArrowLeft, Baby, Keyboard, Phone, DoorClosed, FileDown,
-  Wifi, Radio, Power, Clock, Cpu, Signal, FileAudio
+  Wifi, Radio, Power, FileAudio, Siren, Atom, Footprints, PawPrint
 } from "lucide-react";
-import { useCallback, useRef, useState, useTransition, useEffect } from "react";
+import { useCallback, useRef, useState, useEffect, useTransition } from "react";
 import { jsPDF } from "jspdf";
 
 import { Button } from "@/components/ui/button";
@@ -20,26 +20,29 @@ import { cn } from "@/lib/utils";
 
 
 const eventConfig: { [key: string]: { icon: React.ElementType, color: string } } = {
-  "Glass break": { icon: AlertTriangle, color: "text-cyan-400" },
-  "Shout detected": { icon: Volume2, color: "text-cyan-400" },
-  "Siren": { icon: Bell, color: "text-red-500" },
-  "Heavy impact": { icon: Zap, color: "text-orange-400" },
-  "Conversation": { icon: MessageSquare, color: "text-blue-400" },
-  "Dog bark": { icon: HelpCircle, color: "text-yellow-400" },
-  "Baby sneeze": { icon: Baby, color: "text-pink-400" },
-  "Keyboard typing": { icon: Keyboard, color: "text-indigo-400" },
-  "Phone ring": { icon: Phone, color: "text-purple-400" },
-  "Door slam": { icon: DoorClosed, color: "text-teal-400" },
-  "Default": { icon: HelpCircle, color: "text-gray-400" },
+  "glass break": { icon: AlertTriangle, color: "text-cyan-400" },
+  "shout": { icon: MessageSquare, color: "text-blue-400" },
+  "siren": { icon: Siren, color: "text-red-500" },
+  "heavy impact": { icon: Zap, color: "text-orange-400" },
+  "conversation": { icon: MessageSquare, color: "text-blue-400" },
+  "dog bark": { icon: PawPrint, color: "text-yellow-400" },
+  "baby sneeze": { icon: Baby, color: "text-pink-400" },
+  "keyboard typing": { icon: Keyboard, color: "text-indigo-400" },
+  "phone ring": { icon: Phone, color: "text-purple-400" },
+  "door slam": { icon: DoorClosed, color: "text-teal-400" },
+  "footsteps": { icon: Footprints, color: "text-green-400" },
+  "machine noise": { icon: Atom, color: "text-gray-400" },
+  "default": { icon: HelpCircle, color: "text-gray-400" },
 };
 
 const getEventConfig = (eventName: string) => {
+  const lowerEventName = eventName.toLowerCase();
   for (const key in eventConfig) {
-    if (eventName.toLowerCase().includes(key.toLowerCase())) {
+    if (lowerEventName.includes(key)) {
       return eventConfig[key];
     }
   }
-  return eventConfig.Default;
+  return eventConfig.default;
 };
 
 
@@ -156,7 +159,7 @@ export default function AudioAnalysisClient() {
     doc.text("Detected Events", 20, 50);
 
     let yPos = 60;
-    analysis.events.forEach((event, index) => {
+    analysis.events.forEach((event) => {
       if (yPos > 270) {
         doc.addPage();
         yPos = 20;
@@ -384,7 +387,7 @@ function DetectionEventItem({ event }: { event: DetectedEvent }) {
           <div className="text-xs text-gray-400 font-mono">{timestamp}</div>
         </div>
         <div className="flex items-center justify-between text-xs gap-4">
-          <Progress value={event.confidence * 100} className={cn("w-2/3 h-1.5", progressColor)} />
+          <Progress value={event.confidence * 100} className={cn("w-2/3 h-1.5", `[&>*]:${progressColor}`)} />
           <span className="text-gray-400 font-semibold">{Math.round(event.confidence * 100)}% CONF</span>
         </div>
       </div>
