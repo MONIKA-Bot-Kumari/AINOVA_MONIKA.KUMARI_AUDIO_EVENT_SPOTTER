@@ -43,7 +43,7 @@ const classifyAudioPrompt = ai.definePrompt({
   output: {schema: ClassifyAudioEventsOutputSchema},
   prompt: `You are an expert audio analyst. Your task is to identify all distinct sound events in the provided 10-second audio clip.
 
-The events can include a wide range of sounds like "Dog bark", "Keyboard typing", "Phone ring", "Baby sneeze", "Clapping", "Door slam", and more.
+The events can include a wide range of sounds like "Dog bark", "Keyboard typing", "Phone ring", "Baby sneeze", "Clapping", "Door slam", "Profanity", "Vulgar language", and more.
 
 For each event you identify, you must provide:
 - A unique ID for the event.

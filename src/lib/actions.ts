@@ -21,8 +21,8 @@ export type AnalysisResult = {
   precautionaryMessage: string;
 };
 
-// For the example, "phone ring" will be treated as dangerous.
-const DANGEROUS_EVENTS = ["siren", "glass break", "shout", "heavy impact", "phone ring"];
+// For the example, "phone ring", "profanity", and "vulgar language" will be treated as dangerous.
+const DANGEROUS_EVENTS = ["siren", "glass break", "shout", "heavy impact", "phone ring", "profanity", "vulgar language"];
 
 // Dummy uptime start time
 const startTime = new Date();

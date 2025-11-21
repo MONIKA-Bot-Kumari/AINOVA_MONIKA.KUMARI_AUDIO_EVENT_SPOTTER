@@ -5,7 +5,7 @@ import type { DetectedEvent } from "@/lib/types";
 import { 
   AlertTriangle, Mic, UploadCloud, Loader2, Bell, Zap, MessageSquare, HelpCircle,
   ArrowLeft, Baby, Keyboard, Phone, DoorClosed, FileDown,
-  Wifi, Radio, Power, FileAudio, Siren, Atom, Footprints, PawPrint, WandSparkles
+  Wifi, Radio, Power, FileAudio, Siren, Atom, Footprints, PawPrint, WandSparkles, Ban
 } from "lucide-react";
 import { useCallback, useRef, useState, useEffect, useTransition } from "react";
 import { jsPDF } from "jspdf";
@@ -25,6 +25,8 @@ const eventConfig: { [key: string]: { icon: React.ElementType, color: string } }
   "shout": { icon: MessageSquare, color: "text-orange-400" },
   "siren": { icon: Siren, color: "text-red-500" },
   "heavy impact": { icon: Zap, color: "text-orange-400" },
+  "profanity": { icon: Ban, color: "text-red-400" },
+  "vulgar language": { icon: Ban, color: "text-red-400" },
   "conversation": { icon: MessageSquare, color: "text-blue-400" },
   "dog bark": { icon: PawPrint, color: "text-yellow-400" },
   "baby sneeze": { icon: Baby, color: "text-pink-400" },

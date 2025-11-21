@@ -42,6 +42,7 @@ Detected Events:
 
 Example: If events are 'siren', message could be: "Emergency vehicle detected nearby. Please be aware of your surroundings and clear any pathways if necessary."
 Example: If events are 'glass break', 'shout', message could be: "Potential disturbance detected. For your safety, please be cautious and consider checking the area if it is safe to do so."
+Example: If events are 'profanity', message could be: "Inappropriate language detected. Please be mindful of the environment and ensure it is safe."
 `,
 });
 
