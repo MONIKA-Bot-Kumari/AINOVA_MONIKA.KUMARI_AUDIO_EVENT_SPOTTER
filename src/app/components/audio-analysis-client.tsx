@@ -187,9 +187,9 @@ export default function AudioAnalysisClient() {
           <span className="text-xs text-gray-500">v2.5.0-PRO</span>
         </div>
         <div className="flex items-center gap-4 text-xs">
-          <div className="flex items-center gap-1.5 text-green-400"><Wifi size={14} /><span>CONNECTED</span></div>
-          <div className="flex items-center gap-1.5 text-green-400"><Radio size={14} /><span>LIVE FEED</span></div>
-          <div className="flex items-center gap-1.5 text-green-400"><Power size={14} /><span>PWR 98%</span></div>
+          <div className="flex items-center gap-1.5 text-primary"><Wifi size={14} /><span>CONNECTED</span></div>
+          <div className="flex items-center gap-1.5 text-primary"><Radio size={14} /><span>LIVE FEED</span></div>
+          <div className="flex items-center gap-1.5 text-primary"><Power size={14} /><span>PWR 98%</span></div>
         </div>
       </header>
 
@@ -204,10 +204,10 @@ export default function AudioAnalysisClient() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4">
-              <div className="text-xs text-green-400 mb-2 flex items-center gap-2">
+              <div className="text-xs text-primary mb-2 flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                 </span>
                 LIVE INPUT MONITOR
               </div>
