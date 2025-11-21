@@ -2,6 +2,7 @@
 
 import { classifyAudioEvents } from "@/ai/flows/classify-audio-events";
 import { generatePrecautionMessage } from "@/ai/flows/generate-precaution-message";
+import { generateExampleAudioClips } from "@/ai/flows/generate-example-audio-clips";
 import type { DetectedEvent } from "./types";
 
 export type AnalysisResult = {
@@ -20,7 +21,8 @@ export type AnalysisResult = {
   precautionaryMessage: string;
 };
 
-const DANGEROUS_EVENTS = ["siren", "glass break", "shout", "heavy impact"];
+// For the example, "phone ring" will be treated as dangerous.
+const DANGEROUS_EVENTS = ["siren", "glass break", "shout", "heavy impact", "phone ring"];
 
 // Dummy uptime start time
 const startTime = new Date();
@@ -41,7 +43,7 @@ export async function analyzeAudioClip(
     const classificationResult = await classifyAudioEvents({ audioDataUri });
     
     const detectedEvents = classificationResult.events
-      .filter(event => event.confidence >= 0.5) // Lowered threshold to catch more potential events
+      .filter(event => event.confidence >= 0.5) 
       .sort((a, b) => b.confidence - a.confidence);
 
     const date = new Date();
@@ -78,4 +80,8 @@ export async function analyzeAudioClip(
     console.error("Error during audio analysis:", error);
     throw new Error("Failed to analyze the audio clip. Please try again.");
   }
+}
+
+export async function generateExampleClips() {
+    return await generateExampleAudioClips();
 }

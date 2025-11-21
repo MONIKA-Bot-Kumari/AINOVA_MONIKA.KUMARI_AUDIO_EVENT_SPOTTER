@@ -1,11 +1,11 @@
 "use client";
 
-import { analyzeAudioClip, type AnalysisResult } from "@/lib/actions";
+import { analyzeAudioClip, type AnalysisResult, generateExampleClips } from "@/lib/actions";
 import type { DetectedEvent } from "@/lib/types";
 import { 
   AlertTriangle, Mic, UploadCloud, Loader2, Bell, Zap, MessageSquare, HelpCircle,
   ArrowLeft, Baby, Keyboard, Phone, DoorClosed, FileDown,
-  Wifi, Radio, Power, FileAudio, Siren, Atom, Footprints, PawPrint
+  Wifi, Radio, Power, FileAudio, Siren, Atom, Footprints, PawPrint, WandSparkles
 } from "lucide-react";
 import { useCallback, useRef, useState, useEffect, useTransition } from "react";
 import { jsPDF } from "jspdf";
@@ -29,7 +29,7 @@ const eventConfig: { [key: string]: { icon: React.ElementType, color: string } }
   "dog bark": { icon: PawPrint, color: "text-yellow-400" },
   "baby sneeze": { icon: Baby, color: "text-pink-400" },
   "keyboard typing": { icon: Keyboard, color: "text-indigo-400" },
-  "phone ring": { icon: Phone, color: "text-purple-400" },
+  "phone ring": { icon: Phone, color: "text-red-400" }, // For example
   "door slam": { icon: DoorClosed, color: "text-teal-400" },
   "footsteps": { icon: Footprints, color: "text-green-400" },
   "machine noise": { icon: Atom, color: "text-gray-400" },
@@ -59,6 +59,7 @@ export default function AudioAnalysisClient() {
   const { toast } = useToast();
   const [monitorBarHeights, setMonitorBarHeights] = useState<number[]>([]);
   const [isDanger, setIsDanger] = useState(false);
+  const [isGeneratingExamples, setIsGeneratingExamples] = useState(false);
 
   useEffect(() => {
     // Generate random bar heights only on the client-side to avoid hydration errors
@@ -113,6 +114,30 @@ export default function AudioAnalysisClient() {
     });
   }, [toast]);
   
+  const handleGenerateExamples = useCallback(async () => {
+    setIsGeneratingExamples(true);
+    toast({ title: "Generating Example Clips...", description: "This may take a moment. The AI is creating audio." });
+    try {
+        const examples = await generateExampleClips();
+        
+        // Analyze the "safe" clip first
+        const safeResult = await analyzeAudioClip("Example: Door Slam", examples.doorSlam);
+        setAnalysisHistory(prev => [safeResult, ...prev]);
+
+        // Then analyze the "danger" clip
+        const dangerResult = await analyzeAudioClip("Example: Phone Ring (Danger)", examples.phoneRing);
+        setAnalysisHistory(prev => [dangerResult, ...prev]);
+
+        setSelectedAnalysis(dangerResult); // Show the danger one by default
+        toast({ title: "Examples Generated!", description: "Two sample analyses have been added to your log." });
+
+    } catch (e: any) {
+        toast({ variant: "destructive", title: "Failed to Generate Examples", description: e.message });
+    } finally {
+        setIsGeneratingExamples(false);
+    }
+  }, [toast]);
+
   const triggerFileInput = () => fileInputRef.current?.click();
 
   const startRecording = async () => {
@@ -197,7 +222,7 @@ export default function AudioAnalysisClient() {
     doc.save(`analysis_${analysis.name.replace(/[^a-z0-9]/gi, '_')}.pdf`);
   };
   
-  const isLoading = isAnalyzing || isPending;
+  const isLoading = isAnalyzing || isPending || isGeneratingExamples;
   const currentAnalysis = selectedAnalysis || analysisHistory[0];
   const primaryColorClass = isDanger ? 'text-destructive' : 'text-primary';
 
@@ -325,6 +350,9 @@ export default function AudioAnalysisClient() {
                       </Button>
                     )}
                   </div>
+                  <Button onClick={handleGenerateExamples} variant="ghost" className="text-primary hover:text-primary mt-4">
+                      <WandSparkles size={16} className="mr-2"/> Generate Examples
+                  </Button>
                 </Card>
               )}
                {analysisHistory.length > 0 && !selectedAnalysis && (
