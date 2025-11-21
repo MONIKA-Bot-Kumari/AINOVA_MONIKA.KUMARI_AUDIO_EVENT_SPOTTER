@@ -21,6 +21,8 @@ import {
   Zap,
   MessageSquare,
   HelpCircle,
+  ArrowLeft,
+  Baby,
 } from "lucide-react";
 import { useCallback, useRef, useState, useTransition, useEffect } from "react";
 
@@ -50,7 +52,8 @@ const eventConfig: { [key: string]: { icon: React.ElementType, color: string } }
   "Siren freq": { icon: Bell, color: "text-red-500" },
   "Heavy impact": { icon: Zap, color: "text-orange-400" },
   "Conversation": { icon: MessageSquare, color: "text-blue-400" },
-  "Dog bark": { icon: HelpCircle, color: "text-yellow-400" }, // placeholder
+  "Dog bark": { icon: HelpCircle, color: "text-yellow-400" }, // placeholder, assuming a dog icon
+  "Baby sneeze": { icon: Baby, color: "text-pink-400" },
   "Default": { icon: HelpCircle, color: "text-gray-400" },
 };
 
@@ -146,6 +149,10 @@ export default function AudioAnalysisClient() {
       toast({ title: "Recording stopped", description: "Processing audio..." });
     }
   };
+
+  const resetAnalysis = () => {
+    setAnalysisResult(null);
+  };
   
   const isLoading = isAnalyzing || isPending;
 
@@ -215,9 +222,14 @@ export default function AudioAnalysisClient() {
             <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold tracking-widest text-gray-400">DETECTION LOG</h2>
                 {analysisResult && (
+                  <div className="flex items-center gap-2">
                     <span className="bg-primary/20 text-primary text-xs font-bold px-2 py-1 rounded-md">
                         {analysisResult.events.length} EVENTS
                     </span>
+                    <Button onClick={resetAnalysis} variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:bg-primary/10 hover:text-primary">
+                        <ArrowLeft size={16} />
+                    </Button>
+                  </div>
                 )}
             </div>
             
