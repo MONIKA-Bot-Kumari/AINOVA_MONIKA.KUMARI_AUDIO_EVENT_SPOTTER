@@ -1,6 +1,7 @@
 "use server";
 
 import { classifyAudioEvents } from "@/ai/flows/classify-audio-events";
+import { generatePrecautionMessage } from "@/ai/flows/generate-precaution-message";
 import type { DetectedEvent } from "./types";
 
 export type AnalysisResult = {
@@ -15,7 +16,11 @@ export type AnalysisResult = {
   noiseFloor: number;
   snr: number;
   audioSrc: string;
+  isDanger: boolean;
+  precautionaryMessage: string;
 };
+
+const DANGEROUS_EVENTS = ["siren", "glass break", "shout", "heavy impact"];
 
 // Dummy uptime start time
 const startTime = new Date();
@@ -36,10 +41,23 @@ export async function analyzeAudioClip(
     const classificationResult = await classifyAudioEvents({ audioDataUri });
     
     const detectedEvents = classificationResult.events
-      .filter(event => event.confidence >= 0.8)
+      .filter(event => event.confidence >= 0.5) // Lowered threshold to catch more potential events
       .sort((a, b) => b.confidence - a.confidence);
 
     const date = new Date();
+
+    const dangerousEventsFound = detectedEvents
+        .filter(e => DANGEROUS_EVENTS.some(de => e.event.toLowerCase().includes(de)))
+        .map(e => e.event);
+
+    let isDanger = dangerousEventsFound.length > 0;
+    let precautionaryMessage = "";
+
+    if (isDanger) {
+        const messageResult = await generatePrecautionMessage(dangerousEventsFound);
+        precautionaryMessage = messageResult.message;
+    }
+
 
     return {
       id: `analysis-${Date.now()}`,
@@ -53,6 +71,8 @@ export async function analyzeAudioClip(
       noiseFloor: -60 + Math.floor(Math.random() * 10),
       snr: 10 + Math.floor(Math.random() * 5),
       audioSrc: audioDataUri,
+      isDanger,
+      precautionaryMessage,
     };
   } catch (error) {
     console.error("Error during audio analysis:", error);

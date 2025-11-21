@@ -79,6 +79,11 @@ body {
     --sidebar-border: 210 20% 25%;
     --sidebar-ring: 210 90% 60%;
   }
+
+  .danger-theme {
+    --primary: 0 72% 51%; /* Red */
+    --ring: 0 72% 51%;
+  }
 }
 
 @layer base {

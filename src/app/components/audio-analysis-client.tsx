@@ -17,11 +17,12 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 
 const eventConfig: { [key: string]: { icon: React.ElementType, color: string } } = {
-  "glass break": { icon: AlertTriangle, color: "text-cyan-400" },
-  "shout": { icon: MessageSquare, color: "text-blue-400" },
+  "glass break": { icon: AlertTriangle, color: "text-red-400" },
+  "shout": { icon: MessageSquare, color: "text-orange-400" },
   "siren": { icon: Siren, color: "text-red-500" },
   "heavy impact": { icon: Zap, color: "text-orange-400" },
   "conversation": { icon: MessageSquare, color: "text-blue-400" },
@@ -57,6 +58,7 @@ export default function AudioAnalysisClient() {
   const recordedChunksRef = useRef<Blob[]>([]);
   const { toast } = useToast();
   const [monitorBarHeights, setMonitorBarHeights] = useState<number[]>([]);
+  const [isDanger, setIsDanger] = useState(false);
 
   useEffect(() => {
     // Generate random bar heights only on the client-side to avoid hydration errors
@@ -66,6 +68,15 @@ export default function AudioAnalysisClient() {
     }, 200);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (selectedAnalysis?.isDanger) {
+      setIsDanger(true);
+    } else {
+      setIsDanger(false);
+    }
+  }, [selectedAnalysis]);
+
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -143,6 +154,7 @@ export default function AudioAnalysisClient() {
 
   const resetSelection = () => {
     setSelectedAnalysis(null);
+    setIsDanger(false);
   };
 
   const generatePdf = (analysis: AnalysisResult) => {
@@ -155,10 +167,20 @@ export default function AudioAnalysisClient() {
     doc.text(`Clip Name: ${analysis.name}`, 20, 30);
     doc.text(`Timestamp: ${analysis.timestamp}`, 20, 37);
 
-    doc.setFontSize(16);
-    doc.text("Detected Events", 20, 50);
+    if (analysis.isDanger) {
+        doc.setTextColor(255, 0, 0);
+        doc.setFontSize(16);
+        doc.text("DANGER DETECTED", 20, 45);
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(12);
+        doc.text(`Precaution: ${analysis.precautionaryMessage}`, 20, 52);
+    }
 
-    let yPos = 60;
+
+    doc.setFontSize(16);
+    doc.text("Detected Events", 20, 65);
+
+    let yPos = 75;
     analysis.events.forEach((event) => {
       if (yPos > 270) {
         doc.addPage();
@@ -177,19 +199,34 @@ export default function AudioAnalysisClient() {
   
   const isLoading = isAnalyzing || isPending;
   const currentAnalysis = selectedAnalysis || analysisHistory[0];
+  const primaryColorClass = isDanger ? 'text-destructive' : 'text-primary';
 
   return (
-    <div className="font-mono text-gray-300 p-4 lg:p-6 bg-background min-h-screen">
+    <div className={cn("font-mono text-gray-300 p-4 lg:p-6 bg-background min-h-screen", isDanger && 'danger-theme')}>
+      <AlertDialog open={isDanger && !!selectedAnalysis?.precautionaryMessage} onOpenChange={(open) => !open && setIsDanger(false)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="text-destructive"/> Potential Danger Detected!</AlertDialogTitle>
+            <AlertDialogDescription>
+                {selectedAnalysis?.precautionaryMessage}
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogAction onClick={resetSelection}>Acknowledge</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
       <header className="flex justify-between items-center border-b border-gray-700 pb-3 mb-6">
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-primary"></div>
+          <div className={cn("w-4 h-4", isDanger ? 'bg-destructive' : 'bg-primary')}></div>
           <h1 className="text-xl font-bold text-white">SPOTTER.AI</h1>
           <span className="text-xs text-gray-500">v2.5.0-PRO</span>
         </div>
         <div className="flex items-center gap-4 text-xs">
-          <div className="flex items-center gap-1.5 text-primary"><Wifi size={14} /><span>CONNECTED</span></div>
-          <div className="flex items-center gap-1.5 text-primary"><Radio size={14} /><span>LIVE FEED</span></div>
-          <div className="flex items-center gap-1.5 text-primary"><Power size={14} /><span>PWR 98%</span></div>
+          <div className={cn("flex items-center gap-1.5", primaryColorClass)}><Wifi size={14} /><span>CONNECTED</span></div>
+          <div className={cn("flex items-center gap-1.5", primaryColorClass)}><Radio size={14} /><span>LIVE FEED</span></div>
+          <div className={cn("flex items-center gap-1.5", primaryColorClass)}><Power size={14} /><span>PWR 98%</span></div>
         </div>
       </header>
 
@@ -200,41 +237,41 @@ export default function AudioAnalysisClient() {
             <CardHeader className="border-b border-gray-700 p-4">
               <CardTitle className="text-lg text-white">Room A-102 / MIC ARRAY 1</CardTitle>
               <CardDescription className="text-xs">
-                NOISE FLOOR: <span className="text-primary">{currentAnalysis?.noiseFloor ?? '-58'}dB</span> // SNR: <span className="text-primary">{currentAnalysis?.snr ?? '12'}dB</span>
+                NOISE FLOOR: <span className={primaryColorClass}>{currentAnalysis?.noiseFloor ?? '-58'}dB</span> // SNR: <span className={primaryColorClass}>{currentAnalysis?.snr ?? '12'}dB</span>
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4">
-              <div className="text-xs text-primary mb-2 flex items-center gap-2">
+              <div className={cn("text-xs mb-2 flex items-center gap-2", primaryColorClass)}>
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                  <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", isDanger ? 'bg-destructive' : 'bg-primary')}></span>
+                  <span className={cn("relative inline-flex rounded-full h-2 w-2", isDanger ? 'bg-red-500' : 'bg-blue-500')}></span>
                 </span>
                 LIVE INPUT MONITOR
               </div>
               <div className="h-24 w-full bg-gray-900/50 rounded-md flex items-end gap-1 p-2">
                 {monitorBarHeights.map((height, i) => (
-                  <div key={i} className="bg-primary w-full rounded-t-sm" style={{height: `${height}%`}}></div>
+                  <div key={i} className={cn("w-full rounded-t-sm", isDanger ? 'bg-destructive' : 'bg-primary')} style={{height: `${height}%`}}></div>
                 ))}
               </div>
             </CardContent>
           </Card>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <StatCard title="PEAK LEVEL" value={`${currentAnalysis?.peakLevel.toFixed(1) ?? '-3.2'}`} unit="dB" />
-            <StatCard title="EVENTS/HR" value={`${currentAnalysis?.eventsPerHour ?? '142'}`} color="text-primary" />
-            <StatCard title="PROCESS LOAD" value={`${currentAnalysis?.processLoad ?? '12'}`} unit="%" color="text-primary" />
-            <StatCard title="UPTIME" value={currentAnalysis?.uptime ?? '14h 22m'} color="text-primary" />
+            <StatCard title="PEAK LEVEL" value={`${currentAnalysis?.peakLevel.toFixed(1) ?? '-3.2'}`} unit="dB" isDanger={isDanger}/>
+            <StatCard title="EVENTS/HR" value={`${currentAnalysis?.eventsPerHour ?? '142'}`} color={primaryColorClass} isDanger={isDanger}/>
+            <StatCard title="PROCESS LOAD" value={`${currentAnalysis?.processLoad ?? '12'}`} unit="%" color={primaryColorClass} isDanger={isDanger}/>
+            <StatCard title="UPTIME" value={currentAnalysis?.uptime ?? '14h 22m'} color={primaryColorClass} isDanger={isDanger}/>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <SettingsCard title="SIGNAL PROCESSING">
-              <SettingSlider label="SENSITIVITY THRESHOLD" value={-42} unit="dB" />
-              <SettingSlider label="NOISE GATE" value={-60} unit="dB" />
+              <SettingSlider label="SENSITIVITY THRESHOLD" value={-42} unit="dB" isDanger={isDanger}/>
+              <SettingSlider label="NOISE GATE" value={-60} unit="dB" isDanger={isDanger}/>
             </SettingsCard>
             <SettingsCard title="FILTERS & MODE">
-              <SettingSwitch label="HIGH-PASS FILTER (80Hz)" defaultChecked={true} />
-              <SettingSwitch label="VOCAL ISOLATION" />
-              <SettingSwitch label="ALARM PRIORITY" defaultChecked={true} isAlarm={true} />
+              <SettingSwitch label="HIGH-PASS FILTER (80Hz)" defaultChecked={true} isDanger={isDanger}/>
+              <SettingSwitch label="VOCAL ISOLATION" isDanger={isDanger}/>
+              <SettingSwitch label="ALARM PRIORITY" defaultChecked={true} isAlarm={true} isDanger={isDanger}/>
             </SettingsCard>
           </div>
         </div>
@@ -245,10 +282,10 @@ export default function AudioAnalysisClient() {
                 <h2 className="text-sm font-bold tracking-widest text-gray-400">ANALYSIS LOG</h2>
                 {selectedAnalysis && (
                   <div className="flex items-center gap-2">
-                    <Button onClick={() => generatePdf(selectedAnalysis)} variant="outline" size="sm" className="h-7 border-primary text-primary hover:bg-primary/10 hover:text-primary">
+                    <Button onClick={() => generatePdf(selectedAnalysis)} variant="outline" size="sm" className={cn("h-7 border-primary text-primary hover:bg-primary/10 hover:text-primary", isDanger && "border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive")}>
                       <FileDown size={14} className="mr-1.5" /> PDF
                     </Button>
-                    <Button onClick={resetSelection} variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:bg-primary/10 hover:text-primary">
+                    <Button onClick={resetSelection} variant="ghost" size="icon" className={cn("h-7 w-7 text-gray-400 hover:bg-primary/10 hover:text-primary", isDanger && "hover:bg-destructive/10 hover:text-destructive")}>
                         <ArrowLeft size={16} />
                     </Button>
                   </div>
@@ -266,7 +303,7 @@ export default function AudioAnalysisClient() {
                 <Card className="bg-card border-gray-700">
                   <CardContent className="p-2 max-h-80 overflow-y-auto">
                     {analysisHistory.map(hist => (
-                      <HistoryItem key={hist.id} analysis={hist} onSelect={() => setSelectedAnalysis(hist)} />
+                      <HistoryItem key={hist.id} analysis={hist} onSelect={() => setSelectedAnalysis(hist)} isDanger={hist.isDanger} />
                     ))}
                   </CardContent>
                 </Card>
@@ -315,11 +352,11 @@ export default function AudioAnalysisClient() {
 }
 
 
-function StatCard({ title, value, unit, color = "text-white" }: { title: string, value: string | number, unit?: string, color?: string }) {
+function StatCard({ title, value, unit, color = "text-white", isDanger }: { title: string, value: string | number, unit?: string, color?: string, isDanger?: boolean }) {
   return (
     <Card className="bg-card border-gray-700 p-3">
       <CardDescription className="text-xs text-gray-400">{title}</CardDescription>
-      <CardTitle className={cn("text-2xl font-bold", color)}>
+      <CardTitle className={cn("text-2xl font-bold", color, isDanger && color.includes("primary") ? "text-destructive" : color )}>
         {value}{unit && <span className="text-base ml-1">{unit}</span>}
       </CardTitle>
     </Card>
@@ -335,32 +372,33 @@ function SettingsCard({ title, children }: { title: string, children: React.Reac
   );
 }
 
-function SettingSlider({ label, value, unit }: { label: string, value: number, unit: string }) {
+function SettingSlider({ label, value, unit, isDanger }: { label: string, value: number, unit: string, isDanger?: boolean }) {
   return (
     <div>
       <div className="flex justify-between items-center text-sm mb-1">
         <label className="text-gray-300">{label}</label>
-        <span className="text-primary font-bold">{value}{unit}</span>
+        <span className={cn("font-bold", isDanger ? "text-destructive" : "text-primary")}>{value}{unit}</span>
       </div>
-      <Slider defaultValue={[value]} max={0} min={-100} step={1} className="[&>span]:bg-primary [&>span]:h-4 [&>span]:w-4 [&>span]:border-2 [&>span]:border-background" />
+      <Slider defaultValue={[value]} max={0} min={-100} step={1} className={cn("[&>span]:h-4 [&>span]:w-4 [&>span]:border-2 [&>span]:border-background", isDanger ? "[&>span]:bg-destructive [&_.bg-primary]:bg-destructive" : "[&>span]:bg-primary")} />
     </div>
   );
 }
 
-function SettingSwitch({ label, defaultChecked = false, isAlarm = false }: { label: string, defaultChecked?: boolean, isAlarm?: boolean }) {
+function SettingSwitch({ label, defaultChecked = false, isAlarm = false, isDanger }: { label: string, defaultChecked?: boolean, isAlarm?: boolean, isDanger?: boolean }) {
   return (
     <div className="flex items-center justify-between">
       <label className={cn("text-sm font-medium", isAlarm ? "text-red-400" : "text-gray-300")}>{label}</label>
-      <Switch defaultChecked={defaultChecked} className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-gray-600" />
+      <Switch defaultChecked={defaultChecked} className={cn("data-[state=checked]:bg-primary data-[state=unchecked]:bg-gray-600", isDanger && "data-[state=checked]:bg-destructive")} />
     </div>
   );
 }
 
-function HistoryItem({ analysis, onSelect }: { analysis: AnalysisResult, onSelect: () => void }) {
-  const Icon = analysis.name.startsWith('REC-') ? Mic : FileAudio;
+function HistoryItem({ analysis, onSelect, isDanger }: { analysis: AnalysisResult, onSelect: () => void, isDanger?: boolean }) {
+  const Icon = analysis.isDanger ? AlertTriangle : (analysis.name.startsWith('REC-') ? Mic : FileAudio);
+  const iconColor = analysis.isDanger ? 'text-destructive' : 'text-primary';
   return (
-    <button onClick={onSelect} className="w-full text-left p-2 rounded-md hover:bg-primary/10 transition-colors flex items-center gap-3">
-      <Icon className="w-5 h-5 text-primary flex-shrink-0" />
+    <button onClick={onSelect} className={cn("w-full text-left p-2 rounded-md hover:bg-primary/10 transition-colors flex items-center gap-3", analysis.isDanger && "hover:bg-destructive/10")}>
+      <Icon className={cn("w-5 h-5 flex-shrink-0", iconColor)} />
       <div className="flex-grow overflow-hidden">
         <p className="text-sm text-white truncate font-medium">{analysis.name}</p>
         <p className="text-xs text-gray-400">{analysis.timestamp} - {analysis.events.length} events</p>
